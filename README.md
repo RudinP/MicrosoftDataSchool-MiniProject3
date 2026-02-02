@@ -1,7 +1,12 @@
 # 서울시 지하철 유동인구 수와 휴게업소 데이터 시각화
+[웹사이트 링크](https://3dt016-miniproject3-eqbdabgcenexhafd.koreacentral-01.azurewebsites.net/dashboard)
+<img width="1910" height="1960" alt="image" src="https://github.com/user-attachments/assets/1095fcf9-ad30-496a-8107-23d04414dd12" />
+<img width="1908" height="1069" alt="image" src="https://github.com/user-attachments/assets/0580bb7d-8249-46d6-9c9b-4e3e02b41b43" />
 
 서울시 지하철 역별 유동인구 데이터와 휴게음식점 인허가 정보를 분석하여 시각화하는 웹 애플리케이션입니다.
 지하철 이용객 수와 주변 상권(휴게 음식점) 데이터를 결합하여 유의미한 인사이트를 제공합니다.
+대한상공회의소에서 진행하는 Microsoft Data School 3기를 수강하며 개인적으로 진행한 미니 프로젝트로, 주제 선정부터 직접 했습니다.
+Azure resource를 주기적으로 제거하고있기때문에, 이후 접속이 불가능할 가능성이 매우 큽니다.
 
 ## 🚀 기술 스택 (Tech Stack)
 
@@ -19,6 +24,12 @@
 ## 📊 데이터베이스 구조 (Database Schema)
 
 수집된 공공 데이터는 전처리 후 PostgreSQL 데이터베이스에 저장되어 관리됩니다.
+[서울시 휴게음식점 인허가 정보](https://data.seoul.go.kr/dataList/OA-16095/S/1/datasetView.do)
+[서울시 지하철호선별 역별 승하차 인원 정보](https://data.seoul.go.kr/dataList/OA-12914/S/1/datasetView.do)
+[서울교통공사_자치구별지하철역정보](https://www.data.go.kr/data/15081868/fileData.do)
+https://data.seoul.go.kr/dataList/OA-12914/S/1/datasetView.do
+https://www.data.go.kr/data/15081868/fileData.do
+해당 데이터를 사용, 필요한 경우 ChatGPT와 Gemini 를 사용해 데이터 전처리를 하였습니다.
 
 ### 주요 테이블 (Tables)
 *   **`miniproject3.station_info`**:
