@@ -5,7 +5,7 @@
     <div class="col-md-4">
         <div class="card kpi-card">
             <div class="card-body">
-                <div class="kpi-label">Total Subway Stations</div>
+                <div class="kpi-label">총 지하철 역 수</div>
                 <div class="kpi-value">{{ total_stations }}</div>
             </div>
         </div>
@@ -13,7 +13,7 @@
     <div class="col-md-4">
         <div class="card kpi-card">
             <div class="card-body">
-                <div class="kpi-label">Total Boarding Count</div>
+                <div class="kpi-label">총 승하차 승객 수</div>
                 <div class="kpi-value">{{ "{:,}".format(total_boarding) }}</div>
             </div>
         </div>
@@ -21,7 +21,7 @@
     <div class="col-md-4">
         <div class="card kpi-card">
             <div class="card-body">
-                <div class="kpi-label">Registered Restaurants</div>
+                <div class="kpi-label">등록된 음식점 수</div>
                 <div class="kpi-value">{{ "{:,}".format(total_restaurants) }}</div>
             </div>
         </div>
@@ -31,7 +31,7 @@
 <div class="row">
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header">Top 10 Stations by Passenger Traffic</div>
+            <div class="card-header">🚆 승객 수 상위 10개 역</div>
             <div class="card-body">
                 <canvas id="stationsChart"></canvas>
             </div>
@@ -39,7 +39,7 @@
     </div>
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header">Restaurant Types Distribution</div>
+            <div class="card-header">🍽️ 음식점 업종별 분포</div>
             <div class="card-body">
                 <canvas id="restaurantsChart"></canvas>
             </div>
@@ -50,20 +50,19 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">Advanced Analysis: Stations, Business Types, and Status</div>
+            <div class="card-header">📊 심화 분석: 자치구별 현황</div>
             <div class="card-body">
                 <ul class="nav nav-tabs" id="analysisTab" role="tablist">
                     <li class="nav-item">
                         <a class="nav-link active" id="stations-tab" data-bs-toggle="tab" href="#stations"
-                            role="tab">Stations by District</a>
+                            role="tab">지역별 역사 수</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="types-tab" data-bs-toggle="tab" href="#types" role="tab">Traffic vs
-                            Types</a>
+                        <a class="nav-link" id="types-tab" data-bs-toggle="tab" href="#types" role="tab">유동인구 vs 업종</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="closed-tab" data-bs-toggle="tab" href="#closed" role="tab">Traffic vs
-                            Closed</a>
+                        <a class="nav-link" id="closed-tab" data-bs-toggle="tab" href="#closed" role="tab">유동인구 vs
+                            폐업</a>
                     </li>
                 </ul>
                 <div class="tab-content mt-3" id="analysisTabContent">
@@ -95,7 +94,7 @@
                 data: {
                     labels: statsData.top_stations.map(d => d.name),
                     datasets: [{
-                        label: 'Total Boarding Count',
+                        label: '총 승하차 승객 수',
                         data: statsData.top_stations.map(d => d.value),
                         backgroundColor: 'rgba(54, 162, 235, 0.6)'
                     }]
@@ -125,7 +124,7 @@
                 data: {
                     labels: advancedData.stations_per_district.map(d => d.district),
                     datasets: [{
-                        label: 'Number of Stations',
+                        label: '역 개수',
                         data: advancedData.stations_per_district.map(d => d.count),
                         backgroundColor: '#36A2EB'
                     }]
@@ -151,7 +150,7 @@
                     },
                     options: {
                         plugins: {
-                            title: { display: true, text: 'Business Types in Top 10 Traffic Districts' }
+                            title: { display: true, text: '유동인구 상위 10개 지역 업종 분포' }
                         },
                         scales: {
                             x: { stacked: true },
@@ -166,7 +165,7 @@
                 type: 'scatter',
                 data: {
                     datasets: [{
-                        label: 'District',
+                        label: '자치구',
                         data: advancedData.closed_vs_traffic.map(d => ({
                             x: d.traffic,
                             y: d.closed,
@@ -177,15 +176,15 @@
                 },
                 options: {
                     scales: {
-                        x: { title: { display: true, text: 'Total Traffic (Boarding + Alighting)' } },
-                        y: { title: { display: true, text: 'Closed Restaurants Count' } }
+                        x: { title: { display: true, text: '총 유동인구 (승+하차)' } },
+                        y: { title: { display: true, text: '폐업 음식점 수' } }
                     },
                     plugins: {
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
                                     const p = context.raw;
-                                    return `${p.district}: Traffic ${p.x.toLocaleString()}, Closed ${p.y.toLocaleString()}`;
+                                    return `${p.district}: 유동인구 ${p.x.toLocaleString()}, 폐업 ${p.y.toLocaleString()}건`;
                                 }
                             }
                         }

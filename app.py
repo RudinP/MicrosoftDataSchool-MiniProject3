@@ -126,12 +126,12 @@ def map_view():
             folium.CircleMarker(
                 location=[station['latitude'], station['longitude']],
                 radius=radius,
-                popup=f"{station['station_name']}: {station['total_boarding']:,} (Traffic)",
+                popup=f"{station['station_name']}: {station['total_boarding']:,}명 (유동인구)",
                 color='#3388ff',
                 fill=True,
                 fill_color='#3388ff',
                 fill_opacity=0.6,
-                tooltip=f"{station['station_name']} Traffic"
+                tooltip=f"{station['station_name']} 유동인구"
             ).add_to(m)
 
     # Layer 2: District Restaurants (Red) - Size ~ Restaurant Count
@@ -145,12 +145,12 @@ def map_view():
             folium.CircleMarker(
                 location=[coords['lat'], coords['lon']],
                 radius=radius,
-                popup=f"{district}: {count:,} Restaurants",
+                popup=f"{district}: {count:,}개소 (음식점)",
                 color='#ff3333',
                 fill=True,
                 fill_color='#ff3333',
                 fill_opacity=0.4,
-                tooltip=f"{district} Restaurants"
+                tooltip=f"{district} 음식점 수"
             ).add_to(m)
             
     map_html = m._repr_html_()
