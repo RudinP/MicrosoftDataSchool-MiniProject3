@@ -63,11 +63,11 @@ LEFT JOIN station_boarding sb
     ON si.station_name = sb.station_name
    AND si.line_name = sb.line_name;
 
-CREATE OR REPLACE VIEW v_restaurant_with_district AS
+CREATE OR REPLACE VIEW miniproject3.v_restaurant_with_district AS
 SELECT
     management_number,
     business_status_name,
     business_name,
     business_type_name,
     substring(road_address FROM '([가-힣]+구)') AS district
-FROM restaurant_info;
+FROM miniproject3.restaurant_info;

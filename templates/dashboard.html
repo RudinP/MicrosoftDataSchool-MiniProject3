@@ -47,42 +47,153 @@
     </div>
 </div>
 
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">Advanced Analysis: Stations, Business Types, and Status</div>
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="analysisTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="stations-tab" data-bs-toggle="tab" href="#stations"
+                            role="tab">Stations by District</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="types-tab" data-bs-toggle="tab" href="#types" role="tab">Traffic vs
+                            Types</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="closed-tab" data-bs-toggle="tab" href="#closed" role="tab">Traffic vs
+                            Closed</a>
+                    </li>
+                </ul>
+                <div class="tab-content mt-3" id="analysisTabContent">
+                    <div class="tab-pane fade show active" id="stations" role="tabpanel">
+                        <canvas id="stationsDistrictChart"></canvas>
+                    </div>
+                    <div class="tab-pane fade" id="types" role="tabpanel">
+                        <canvas id="trafficTypesChart"></canvas>
+                    </div>
+                    <div class="tab-pane fade" id="closed" role="tabpanel">
+                        <canvas id="trafficClosedChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        fetch('/api/stats')
-            .then(response => response.json())
-            .then(data => {
-                // Stations Chart
-                const stationsCtx = document.getElementById('stationsChart').getContext('2d');
-                new Chart(stationsCtx, {
+    document.addEventListener('DOMContentLoaded', function () {
+        Promise.all([
+            fetch('/api/stats').then(res => res.json()),
+            fetch('/api/advanced_stats').then(res => res.json())
+        ]).then(([statsData, advancedData]) => {
+            // Stations Chart
+            const stationsCtx = document.getElementById('stationsChart').getContext('2d');
+            new Chart(stationsCtx, {
+                type: 'bar',
+                data: {
+                    labels: statsData.top_stations.map(d => d.name),
+                    datasets: [{
+                        label: 'Total Boarding Count',
+                        data: statsData.top_stations.map(d => d.value),
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                    }]
+                },
+                options: { indexAxis: 'y' }
+            });
+
+            // Restaurants Chart
+            const restaurantsCtx = document.getElementById('restaurantsChart').getContext('2d');
+            new Chart(restaurantsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: statsData.restaurant_types.map(d => d.name),
+                    datasets: [{
+                        data: statsData.restaurant_types.map(d => d.value),
+                        backgroundColor: [
+                            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                            '#FF9F40', '#C9CBCF', '#7BC225', '#F7464A', '#46BFBD'
+                        ]
+                    }]
+                }
+            });
+
+            // 1. Stations by District
+            new Chart(document.getElementById('stationsDistrictChart'), {
+                type: 'bar',
+                data: {
+                    labels: advancedData.stations_per_district.map(d => d.district),
+                    datasets: [{
+                        label: 'Number of Stations',
+                        data: advancedData.stations_per_district.map(d => d.count),
+                        backgroundColor: '#36A2EB'
+                    }]
+                }
+            });
+
+            // 2. Traffic vs Business Types (Stacked Bar)
+            if (advancedData.traffic_vs_types.length > 0) {
+                const topDistricts = advancedData.traffic_vs_types.slice(0, 10);
+                const types = Object.keys(topDistricts[0].types);
+                const datasets = types.map((t, i) => ({
+                    label: t,
+                    data: topDistricts.map(d => d.types[t]),
+                    backgroundColor: `hsla(${i * 60}, 70%, 50%, 0.7)`,
+                    stack: 'Stack 0'
+                }));
+
+                new Chart(document.getElementById('trafficTypesChart'), {
                     type: 'bar',
                     data: {
-                        labels: data.top_stations.map(d => d.name),
-                        datasets: [{
-                            label: 'Total Boarding Count',
-                            data: data.top_stations.map(d => d.value),
-                            backgroundColor: 'rgba(54, 162, 235, 0.6)'
-                        }]
+                        labels: topDistricts.map(d => d.district),
+                        datasets: datasets
                     },
-                    options: { indexAxis: 'y' }
-                });
-
-                // Restaurants Chart
-                const restaurantsCtx = document.getElementById('restaurantsChart').getContext('2d');
-                new Chart(restaurantsCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.restaurant_types.map(d => d.name),
-                        datasets: [{
-                            data: data.restaurant_types.map(d => d.value),
-                            backgroundColor: [
-                                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-                                '#FF9F40', '#C9CBCF', '#7BC225', '#F7464A', '#46BFBD'
-                            ]
-                        }]
+                    options: {
+                        plugins: {
+                            title: { display: true, text: 'Business Types in Top 10 Traffic Districts' }
+                        },
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true }
+                        }
                     }
                 });
+            }
+
+            // 3. Traffic vs Closed (Scatter)
+            new Chart(document.getElementById('trafficClosedChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'District',
+                        data: advancedData.closed_vs_traffic.map(d => ({
+                            x: d.traffic,
+                            y: d.closed,
+                            district: d.district
+                        })),
+                        backgroundColor: '#FF6384'
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { title: { display: true, text: 'Total Traffic (Boarding + Alighting)' } },
+                        y: { title: { display: true, text: 'Closed Restaurants Count' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const p = context.raw;
+                                    return `${p.district}: Traffic ${p.x.toLocaleString()}, Closed ${p.y.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
             });
+
+        });
     });
 </script>
 {% endblock %}

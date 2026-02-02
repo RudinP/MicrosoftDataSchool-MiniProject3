@@ -64,21 +64,51 @@ def map_view():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
     
-    # Fetch station location and total boarding info
-    query = """
+    # 1. Station Data (Traffic & Location) & Extract District
+    query_stations = """
     SELECT 
         si.station_name, 
         si.line_name, 
         si.latitude, 
         si.longitude, 
-        COALESCE(SUM(sb.boarding_count), 0) as total_boarding
+        COALESCE(SUM(sb.boarding_count), 0) as total_boarding,
+        substring(sa.road_address FROM '([가-힣]+구)') as district
     FROM miniproject3.station_info si
     LEFT JOIN miniproject3.station_boarding sb 
         ON si.station_name = sb.station_name AND si.line_name = sb.line_name
-    GROUP BY si.station_name, si.line_name, si.latitude, si.longitude
+    LEFT JOIN miniproject3.station_address sa
+        ON si.station_name = sa.station_name AND si.line_name = sa.line_name
+    GROUP BY si.station_name, si.line_name, si.latitude, si.longitude, sa.road_address
     """
-    cur.execute(query)
+    cur.execute(query_stations)
     stations = cur.fetchall()
+    
+    # 2. Restaurant Count by District (using the View)
+    query_restaurants = """
+    SELECT district, COUNT(*) as cnt 
+    FROM miniproject3.v_restaurant_with_district 
+    WHERE district IS NOT NULL 
+    GROUP BY district
+    """
+    cur.execute(query_restaurants)
+    restaurant_counts = {row['district']: row['cnt'] for row in cur.fetchall()}
+
+    # Calculate District Centroids for Restaurant Bubbles
+    district_coords = {}
+    district_stat_counts = {}
+    
+    for s in stations:
+        d = s['district']
+        if d:
+            if d not in district_coords:
+                district_coords[d] = {'lat': 0, 'lon': 0, 'count': 0}
+            district_coords[d]['lat'] += s['latitude']
+            district_coords[d]['lon'] += s['longitude']
+            district_coords[d]['count'] += 1
+            
+    for d in district_coords:
+        district_coords[d]['lat'] /= district_coords[d]['count']
+        district_coords[d]['lon'] /= district_coords[d]['count']
     
     cur.close()
     conn.close()
@@ -86,23 +116,150 @@ def map_view():
     # Create Map centered on Seoul
     m = folium.Map(location=[37.5665, 126.9780], zoom_start=11)
     
+    # Layer 1: Subway Stations (Blue) - Size ~ Traffic
     for station in stations:
         if station['latitude'] and station['longitude']:
-             # CircleMarker size based on boarding count
-            radius = min(station['total_boarding'] / 100000, 20) 
-            radius = max(radius, 3) # minimum size
+            # Radius scaling
+            radius = min(station['total_boarding'] / 50000, 15) 
+            radius = max(radius, 2)
             
             folium.CircleMarker(
                 location=[station['latitude'], station['longitude']],
                 radius=radius,
-                popup=f"{station['station_name']} ({station['line_name']}): {station['total_boarding']:,} Boarding",
-                color='blue',
+                popup=f"{station['station_name']}: {station['total_boarding']:,} (Traffic)",
+                color='#3388ff',
                 fill=True,
-                fill_color='blue'
+                fill_color='#3388ff',
+                fill_opacity=0.6,
+                tooltip=f"{station['station_name']} Traffic"
+            ).add_to(m)
+
+    # Layer 2: District Restaurants (Red) - Size ~ Restaurant Count
+    for district, coords in district_coords.items():
+        count = restaurant_counts.get(district, 0)
+        if count > 0:
+            # Radius scaling
+            radius = min(count / 1000, 40)
+            radius = max(radius, 5)
+            
+            folium.CircleMarker(
+                location=[coords['lat'], coords['lon']],
+                radius=radius,
+                popup=f"{district}: {count:,} Restaurants",
+                color='#ff3333',
+                fill=True,
+                fill_color='#ff3333',
+                fill_opacity=0.4,
+                tooltip=f"{district} Restaurants"
             ).add_to(m)
             
     map_html = m._repr_html_()
     return render_template('map.html', map_html=map_html)
+
+@app.route('/api/advanced_stats')
+def api_advanced_stats():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    # Data 1: Stations per District
+    cur.execute("""
+        SELECT substring(road_address FROM '([가-힣]+구)') as district, COUNT(*) as cnt
+        FROM miniproject3.station_address
+        WHERE road_address IS NOT NULL
+        GROUP BY district
+        ORDER BY cnt DESC
+    """)
+    stations_per_district = cur.fetchall()
+    
+    # Data 2: Closed Restaurants vs Traffic by District
+    # Join logic: District extracted from both sides
+    cur.execute("""
+        WITH district_traffic AS (
+            SELECT 
+                substring(sa.road_address FROM '([가-힣]+구)') as district,
+                SUM(sb.boarding_count + sb.alighting_count) as total_traffic
+            FROM miniproject3.station_info si
+            JOIN miniproject3.station_address sa ON si.station_name = sa.station_name AND si.line_name = sa.line_name
+            JOIN miniproject3.station_boarding sb ON si.station_name = sb.station_name AND si.line_name = sb.line_name
+            GROUP BY district
+        ),
+        district_closed_restaurants AS (
+            SELECT district, COUNT(*) as closed_cnt
+            FROM miniproject3.v_restaurant_with_district
+            WHERE business_status_name = '폐업'
+            GROUP BY district
+        )
+        SELECT 
+            dt.district,
+            dt.total_traffic,
+            COALESCE(dcr.closed_cnt, 0) as closed_cnt
+        FROM district_traffic dt
+        JOIN district_closed_restaurants dcr ON dt.district = dcr.district
+    """)
+    closed_vs_traffic = cur.fetchall()
+    
+    # Data 3: Top Business Types by District (Correlation traffic vs type)
+    # Simplified: Get Top 5 types overall, then count per district
+    cur.execute("""
+        SELECT business_type_name 
+        FROM miniproject3.v_restaurant_with_district 
+        GROUP BY business_type_name 
+        ORDER BY COUNT(*) DESC 
+        LIMIT 5
+    """)
+    top_types = [row[0] for row in cur.fetchall()]
+    
+    # Get counts per district for these top types + Traffic
+    # This query might be complex, doing it in Python post-processing might be easier if dataset small, 
+    # but let's try SQL for key metrics.
+    # Actually, let's just send Traffic and Type Counts per district to frontend.
+    
+    type_columns = ", ".join([f"COUNT(CASE WHEN business_type_name = '{t}' THEN 1 END) as \"{t}\"" for t in top_types])
+    
+    cur.execute(f"""
+        WITH district_traffic AS (
+            SELECT 
+                substring(sa.road_address FROM '([가-힣]+구)') as district,
+                SUM(sb.boarding_count) as total_boarding
+            FROM miniproject3.station_info si
+            JOIN miniproject3.station_address sa ON si.station_name = sa.station_name AND si.line_name = sa.line_name
+            JOIN miniproject3.station_boarding sb ON si.station_name = sb.station_name AND si.line_name = sb.line_name
+            GROUP BY district
+        ),
+        district_types AS (
+            SELECT district, {type_columns}
+            FROM miniproject3.v_restaurant_with_district
+            WHERE district IS NOT NULL
+            GROUP BY district
+        )
+        SELECT 
+            dt.district,
+            dt.total_boarding,
+            dt2.*
+        FROM district_traffic dt
+        JOIN district_types dt2 ON dt.district = dt2.district
+        ORDER BY dt.total_boarding DESC
+    """)
+    traffic_vs_types = cur.fetchall() # Returns district, traffic, district_again, type1, type2...
+    
+    cur.close()
+    conn.close()
+    
+    # Format traffic_vs_types
+    formatted_traffic_types = []
+    for row in traffic_vs_types:
+        item = {
+            'district': row['district'],
+            'traffic': row['total_boarding'],
+            'types': {t: row[t] for t in top_types}
+        }
+        formatted_traffic_types.append(item)
+
+    return jsonify({
+        'stations_per_district': [{'district': r['district'], 'count': r['cnt']} for r in stations_per_district if r['district']],
+        'closed_vs_traffic': [{'district': r['district'], 'traffic': r['total_traffic'], 'closed': r['closed_cnt']} for r in closed_vs_traffic if r['district']],
+        'traffic_vs_types': formatted_traffic_types
+    })
 
 @app.route('/api/stats')
 def api_stats():
