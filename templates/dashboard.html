@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Total Subway Stations</div>
+                <div class="kpi-value">{{ total_stations }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Total Boarding Count</div>
+                <div class="kpi-value">{{ "{:,}".format(total_boarding) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Registered Restaurants</div>
+                <div class="kpi-value">{{ "{:,}".format(total_restaurants) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Top 10 Stations by Passenger Traffic</div>
+            <div class="card-body">
+                <canvas id="stationsChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Restaurant Types Distribution</div>
+            <div class="card-body">
+                <canvas id="restaurantsChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/api/stats')
+            .then(response => response.json())
+            .then(data => {
+                // Stations Chart
+                const stationsCtx = document.getElementById('stationsChart').getContext('2d');
+                new Chart(stationsCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.top_stations.map(d => d.name),
+                        datasets: [{
+                            label: 'Total Boarding Count',
+                            data: data.top_stations.map(d => d.value),
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                        }]
+                    },
+                    options: { indexAxis: 'y' }
+                });
+
+                // Restaurants Chart
+                const restaurantsCtx = document.getElementById('restaurantsChart').getContext('2d');
+                new Chart(restaurantsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.restaurant_types.map(d => d.name),
+                        datasets: [{
+                            data: data.restaurant_types.map(d => d.value),
+                            backgroundColor: [
+                                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                                '#FF9F40', '#C9CBCF', '#7BC225', '#F7464A', '#46BFBD'
+                            ]
+                        }]
+                    }
+                });
+            });
+    });
+</script>
+{% endblock %}
